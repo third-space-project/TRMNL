@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Live Airport Aircraft Tracker</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #333; }
+        .search-container { background: #f7f9fa; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 30px; }
+        .form-group { display: flex; gap: 15px; }
+        input[type="text"], input[type="number"] { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+        input[type="text"] { flex: 2; }
+        input[type="number"] { flex: 1; }
+        button { padding: 10px 20px; background-color: #007BFF; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .error { color: #dc3545; background-color: #f8d7da; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+    <h1>Live Aircraft Radar Tracker</h1>
+    
+    <div class="search-container">
+        <!-- The form submits a GET request back to the web server -->
+        <form action="/" method="GET" class="form-group">
+            <input type="text" name="airport" placeholder="Enter Airport Code (e.g., HECA, KLAX, EGLL)" value="{{ code or '' }}" required>
+            <input type="number" name="radius" placeholder="Radius (miles)" value="{{ search_radius or 25 }}" min="5" max="100">
+            <button type="submit">Track Flights</button>
+        </form>
+    </div>
+
+    <!-- Error Handling -->
+    {% if error %}
+        <div class="error">{{ error }}</div>
+    {% endif %}
+
+    <!-- Conditionally display data only if an airport has been searched -->
+    {% if airport_name %}
+        <h2>Live Tracker for {{ airport_name }} ({{ code }})</h2>
+        <p>Radius: <strong>{{ search_radius }} miles</strong> | Total Aircraft Found: <strong>{{ aircraft_count }}</strong></p>
+        <p><small><i>Refresh the page to poll OpenSky for live updates.</i></small></p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Callsign</th>
+                    <th>Altitude</th>
+                    <th>On Ground</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for aircraft in flights %}
+                <tr>
+                    <td><strong>{{ aircraft.callsign }}</strong></td>
+                    <td>{{ aircraft.altitude }}</td>
+                    <td>{{ aircraft.on_ground }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" style="text-align: center; color: #777;">No aircraft currently detected inside this boundary.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
+</body>
+</html>
