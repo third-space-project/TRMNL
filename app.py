@@ -18,6 +18,24 @@ def calculate_bounding_box(lat, lon, radius_miles=20):
     lon_offset = radius_miles / 57.0
     return {"lamin": lat - lat_offset, "lamax": lat + lat_offset, "lomin": lon - lon_offset, "lomax": lon + lon_offset}
 
+
+def project_aircraft_position(flight_lat, flight_lon, airport_lat, airport_lon, radius_miles):
+    lat_delta = flight_lat - airport_lat
+    lon_delta = flight_lon - airport_lon
+    avg_lat = (flight_lat + airport_lat) / 2.0
+    x_miles = lon_delta * 69.172 * __import__('math').cos(__import__('math').radians(avg_lat))
+    y_miles = lat_delta * 69.0
+
+    x_percent = 50 + (x_miles / radius_miles) * 40
+    y_percent = 50 - (y_miles / radius_miles) * 40
+
+    return {
+        "x_percent": max(5, min(95, x_percent)),
+        "y_percent": max(5, min(95, y_percent)),
+        "distance_miles": round(__import__('math').hypot(x_miles, y_miles), 1),
+    }
+
+
 def get_nearby_aircraft(airport_code, radius=25):
     airport = get_airport_info(airport_code)
     if not airport:
@@ -50,10 +68,21 @@ def get_nearby_aircraft(airport_code, radius=25):
         aircraft_list = []
         for flight in states:
             if len(flight) > 8:
+                latitude = flight[6]
+                longitude = flight[5]
+                if latitude is None or longitude is None:
+                    continue
+
+                position = project_aircraft_position(latitude, longitude, airport['lat'], airport['lon'], radius)
                 aircraft_list.append({
                     "callsign": flight[1].strip() if flight[1] else "UNKNOWN",
                     "altitude": f"{int(flight[7])}m" if flight[7] is not None else "Unknown",
-                    "on_ground": "Yes" if flight[8] else "No"
+                    "on_ground": "Yes" if flight[8] else "No",
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "x_percent": position["x_percent"],
+                    "y_percent": position["y_percent"],
+                    "distance_miles": position["distance_miles"],
                 })
 
         return {

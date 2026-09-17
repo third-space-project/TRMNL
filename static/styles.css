@@ -1,0 +1,181 @@
+    body { 
+        font-family: Arial, sans-serif;
+        max-width: 900px; 
+        margin: 40px auto; 
+        padding: 0 20px; 
+        color: #333; 
+    }
+
+    .search-container { background: #f7f9fa; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 30px; }
+    
+    .form-group { display: flex; gap: 15px; }
+    
+    input[type="text"], input[type="number"] { 
+        padding: 10px; 
+        border: 1px solid #ccc; 
+        border-radius: 4px; 
+        font-size: 16px; 
+    }
+
+    input[type="text"] { flex: 2; }
+    
+    input[type="number"] { flex: 1; }
+    
+    button { 
+        padding: 10px 20px; 
+        background-color: #5c5d5d; 
+        color: white; 
+        border: none; 
+        border-radius: 4px; 
+        font-size: 16px; 
+        cursor: pointer; 
+    }
+    
+    button:hover { 
+        background-color: #393a3a; 
+        
+    }
+    table { 
+        border-collapse: collapse; 
+        width: 100%; margin-top: 20px; 
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+    }
+
+    th, td { 
+        border: 1px solid #ddd; 
+        padding: 12px; 
+        text-align: left; 
+    }
+    th { 
+        background-color: #f2f2f2; 
+    }
+
+    .error { 
+        color: #dc3545; 
+        background-color: #f8d7da; 
+        padding: 15px; 
+        border-radius: 4px; 
+        margin-bottom: 20px; 
+    }
+
+   
+    .radar-box-area{
+        height: 100vh;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+    }
+
+    .radar-box{
+        width: calc(100vh - 50px);
+        height: calc(100vh - 50px);
+        position: relative;
+        border-radius: 50%;
+        overflow: hidden;
+        background-color: rgb(246, 252, 246);
+        background-image: radial-gradient(circle,
+            #f3f4f3 5%, rgb(28, 29, 28), #f3f4f3 6%, #f3f4f3 10%, rgb(28, 29, 28), #f3f4f3 11%,
+            #f3f4f3 15%, rgb(28, 29, 28), #f3f4f3 16%, #f3f4f3 20%, rgb(28, 29, 28), #f3f4f3 21%,
+            #f3f4f3 25%, rgb(28, 29, 28), #f3f4f3 26%, #f3f4f3 30%, rgb(28, 29, 28), #f3f4f3 31%,
+            #f3f4f3 35%, rgb(28, 29, 28), #f3f4f3 36%, #f3f4f3 40%, rgb(28, 29, 28), #f3f4f3 41%,
+            #f3f4f3 45%, rgb(28, 29, 28), #f3f4f3 46%, #f3f4f3 50%, rgb(28, 29, 28), #f3f4f3 51%,
+            #f3f4f3 55%, rgb(28, 29, 28), #f3f4f3 56%, #f3f4f3 60%, rgb(28, 29, 28), #f3f4f3 61%,
+            #f3f4f3 65%, rgb(28, 29, 28), #f3f4f3 66%, #f3f4f3 70%, rgb(28, 29, 28), #f3f4f3 71%);
+    }
+
+    @media only screen and (orientation: portrait){
+        .radar-box{
+            width: calc(100vw - 50px);
+            height: calc(100vw - 50px);
+        }
+    }
+
+    .radar{
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: radial-gradient(circle at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 48%, rgba(0,0,0,0.08) 49%, rgba(0,0,0,0) 55%, rgba(0,0,0,0) 100%);
+        z-index: 1;
+    }
+
+    .radar::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 50%;
+        height: 40%;
+        transform: translateY(-100%);
+        border-bottom: 2px solid rgb(28, 29, 28);
+        background: linear-gradient(325deg, rgb(28, 29, 28), transparent, transparent);
+        animation: 5s radarAnim;
+        animation-iteration-count: infinite;
+        animation-timing-function: linear;
+        transform-origin: left bottom;
+    }
+
+    @keyframes radarAnim{
+        from{
+            transform: translateY(-100%) rotate(0deg);
+        }
+        to{
+            transform: translateY(-100%) rotate(360deg);
+        }
+    }
+
+    .flight-marker {
+        position: absolute;
+        width: 18px;
+        height: 18px;
+        transform: translate(-50%, -50%);
+        z-index: 2;
+        pointer-events: none;
+    }
+
+    .flight-plane {
+        position: absolute;
+        inset: 0;
+        display: block;
+        background: linear-gradient(135deg, #e63946 0%, #d62828 100%);
+        clip-path: polygon(0% 50%, 30% 20%, 55% 20%, 70% 0%, 100% 50%, 70% 100%, 55% 80%, 30% 80%);
+        border-radius: 3px;
+        box-shadow: 0 0 0 2px rgba(255,255,255,0.6);
+        transform: rotate(45deg);
+    }
+
+    .flight-plane::before,
+    .flight-plane::after {
+        content: "";
+        position: absolute;
+        background: rgba(255,255,255,0.8);
+    }
+
+    .flight-plane::before {
+        width: 2px;
+        height: 10px;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    .flight-plane::after {
+        width: 10px;
+        height: 2px;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    .flight-marker::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 6px;
+        height: 6px;
+        transform: translate(-50%, -50%);
+        background: #4cc9f0;
+        border-radius: 50%;
+        box-shadow: 0 0 10px rgba(76, 201, 240, 0.9);
+    }
