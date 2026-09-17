@@ -15,7 +15,7 @@ def get_airport_info(airport_code):
 
 def calculate_bounding_box(lat, lon, radius_miles=20):
     lat_offset = radius_miles / 69.0
-    lon_offset = radius_miles / 57.0 
+    lon_offset = radius_miles / 57.0
     return {"lamin": lat - lat_offset, "lamax": lat + lat_offset, "lomin": lon - lon_offset, "lomax": lon + lon_offset}
 
 def get_nearby_aircraft(airport_code, radius=25):
@@ -24,30 +24,29 @@ def get_nearby_aircraft(airport_code, radius=25):
         return {"error": f"Airport '{airport_code.upper()}' could not be found in the database."}
 
     params = calculate_bounding_box(airport['lat'], airport['lon'], radius_miles=radius)
-    
-    # FIX: Corrected API route to fetch states data instead of the web homepage HTML
-    url = "https://opensky-network.org"
-    
+
+    # Request the OpenSky states API, not the OpenSky website homepage.
+    url = "https://opensky-network.org/api/states/all"
+
     try:
         headers = {'User-Agent': 'Mozilla/5.0 (Flask Backend Flight Tracker)'}
-        
-        # Optional: If you register an account on OpenSky to prevent rate-limiting, 
+
+        # Optional: If you register an account on OpenSky to prevent rate-limiting,
         # add auth=('your_username', 'your_password') inside the requests.get parameters below
         response = requests.get(url, params=params, headers=headers, timeout=10)
-        
+
         if response.status_code == 429:
             return {"error": "OpenSky API rate limit reached. Please wait a minute and try again."}
         elif response.status_code != 200:
             return {"error": f"OpenSky API returned status code {response.status_code}"}
-            
-        # FIX: Safe JSON parsing fallback step
+
         try:
             data = response.json()
-        except requests.exceptions.JSONDecodeError:
+        except ValueError:
             return {"error": "Received an unexpected non-JSON response from OpenSky. The server might be down or overloaded."}
-            
+
         states = data.get("states", []) or []
-        
+
         aircraft_list = []
         for flight in states:
             if len(flight) > 8:
@@ -56,7 +55,7 @@ def get_nearby_aircraft(airport_code, radius=25):
                     "altitude": f"{int(flight[7])}m" if flight[7] is not None else "Unknown",
                     "on_ground": "Yes" if flight[8] else "No"
                 })
-            
+
         return {
             "airport_name": airport['name'],
             "code": airport_code.upper(),
