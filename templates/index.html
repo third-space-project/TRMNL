@@ -9,61 +9,89 @@
 
     <h1>Live Aircraft Radar Tracker</h1>
 
-    
-
     <div class="search-container">
-        <!-- The form submits a GET request back to the web server -->
         <form action="/" method="GET" class="form-group">
             <input type="text" name="airport" placeholder="Enter Airport Code (e.g., HECA, KLAX, EGLL)" value="{{ code or '' }}" required>
             <input type="number" name="radius" placeholder="Radius (miles)" value="{{ search_radius or 25 }}" min="5" max="250">
             <button type="submit">Track Flights</button>
         </form>
     </div>
+
     <div class="radar-box-area">
         <div class="radar-box">
             <div class="radar" aria-hidden="true"></div>
 
             {% if airport_name %}
                 {% for aircraft in flights %}
-                    <span class="flight-marker"
-                          data-x="{{ aircraft.x_percent }}"
-                          data-y="{{ aircraft.y_percent }}"
-                          title="{{ aircraft.callsign }} · {{ aircraft.distance_miles }} miles away">
-                        <span class="flight-plane" aria-label="{{ aircraft.callsign }} plane"></span>
-                    </span>
+                    <div class="flight-marker {{ aircraft.type }}"
+                         data-x="{{ aircraft.x_percent }}"
+                         data-y="{{ aircraft.y_percent }}"
+                         data-heading="{{ aircraft.heading }}"
+                         data-callsign="{{ aircraft.callsign }}"
+                         data-model="{{ aircraft.model }}"
+                         data-altitude="{{ aircraft.altitude }}"
+                         data-speed="{{ aircraft.speed }}"
+                         data-operator="{{ aircraft.operator }}">
+                        
+                        <!-- Inline responsive vector graphics grouped cleanly per size profile -->
+                        <svg class="plane-svg" viewBox="0 0 512 512" xmlns="http://w3.org">
+                            {% if aircraft.type == 'commercial' %}
+                                <!-- Commercial Twin-Engine Jet -->
+                                <path d="M256 0c-11.8 0-21.3 14.3-21.3 32v150.1l-182.2 99c-10 5.4-14.8 16.5-11.4 27.2 3.4 10.7 14.2 17.7 25.5 16.1l168.1-23.7V408l-45.7 34.3c-6.1 4.6-9.1 12.3-7.8 19.9l4.6 27.4c1.9 11.2 12.7 18.2 23.6 15.1l56.6-16.2 56.6 16.2c10.9 3.1 21.7-3.9 23.6-15.1l4.6-27.4c1.3-7.6-1.7-15.3-7.8-19.9L322.7 408V301.7l168.1 23.7c11.3 1.6 22.1-5.4 25.5-16.1 3.4-10.7-1.4-21.8-11.4-27.2L349.3 182.1V32c0-17.7-9.5-32-21.3-32H256z"/>
+                            {% elif aircraft.type == 'cargo' %}
+                                <!-- Cargo/Heavy Widebody Quad Carrier -->
+                                <path d="M256 0c-15 0-24 18-24 36v134L32 248c-12 5-18 18-15 30s16 18 28 15l179-33V400l-55 45c-5 4-8 10-7 16l5 30c2 11 14 17 24 13l60-22 60 22c10 4 22-2 24-13l5-30c1-6-2-12-7-16l-55-45V275l179 33c12 3 25-3 28-15s-3-25-15-30L304 170V36c0-18-9-36-24-36h-24z" fill-opacity="0.95"/>
+                            {% elif aircraft.type == 'private' %}
+                                <!-- Small General Aviation Straight-Wing Plane -->
+                                <path d="M256 40c-8 0-15 10-15 25v125L10 190c-6 0-10 6-10 12v15c0 6 5 10 11 9l234-36v150l-30 25v20l45-12 45 12v-20l-30-25V315l234 36c6 1 11-3 11-9v-15c0-6-4-12-10-12L286 190V65c0-15-7-25-15-25h-15z"/>
+                            {% else %}
+                                <!-- Delta Wing Military Jet Fighter -->
+                                <path d="M256 0l-40 120L16 380h200v80l-40 40h160l-40-40v-80h200L296 120 256 0z"/>
+                            {% endif %}
+                        </svg>
+                    </div>
                 {% endfor %}
             {% endif %}
         </div>
     </div>
-    <!-- Error Handling -->
+
+    <!-- The Shared Dynamic Hover Tooltip Banner Blueprint -->
+    <div id="radar-tooltip" class="radar-hover-banner" style="display: none;">
+        <div class="tooltip-row header-row">
+            <span id="tip-callsign" class="banner-title">---</span>
+            <span id="tip-operator" class="banner-sub">---</span>
+        </div>
+        <div class="tooltip-grid">
+            <div class="grid-item"><strong>Model:</strong> <span id="tip-model">---</span></div>
+            <div class="grid-item"><strong>Altitude:</strong> <span id="tip-alt">---</span></div>
+            <div class="grid-item"><strong>Speed:</strong> <span id="tip-speed">---</span></div>
+        </div>
+    </div>
+
     {% if error %}
         <div class="error">{{ error }}</div>
     {% endif %}
 
-    <!-- Conditionally display data only if an airport has been searched -->
     {% if airport_name %}
         <h2>Live Tracker for {{ airport_name }} ({{ code }})</h2>
         <p>Radius: <strong>{{ search_radius }} miles</strong> | Total Aircraft Found: <strong>{{ aircraft_count }}</strong></p>
-        <p><small><i>Refresh the page to poll OpenSky for live updates.</i></small></p>
-
+        
         <table>
             <thead>
                 <tr>
                     <th>Callsign</th>
+                    <th>Aircraft Category</th>
                     <th>Altitude</th>
-                    <th>On Ground</th>
+                    <th>Ground Speed</th>
                 </tr>
             </thead>
             <tbody>
                 {% for aircraft in flights %}
                 <tr>
                     <td><strong>{{ aircraft.callsign }}</strong></td>
+                    <td><span class="type-pill {{ aircraft.type }}">{{ aircraft.type.upper() }}</span> ({{ aircraft.model }})</td>
                     <td>{{ aircraft.altitude }}</td>
-                    <td>{{ aircraft.on_ground }}</td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="3" style="text-align: center; color: #777;">No aircraft currently detected inside this boundary.</td>
+                    <td>{{ aircraft.speed }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -71,15 +99,54 @@
     {% endif %}
 
     <script>
+        // Node updates and spatial mapping handling rotations
         document.querySelectorAll('.flight-marker').forEach(function(marker) {
             const x = parseFloat(marker.dataset.x);
             const y = parseFloat(marker.dataset.y);
+            const heading = parseFloat(marker.dataset.heading) || 0;
+            
             if (!Number.isNaN(x) && !Number.isNaN(y)) {
                 marker.style.left = x + '%';
                 marker.style.top = y + '%';
+                
+                // Rotates vector paths accurately inside tracking system coordinates
+                const svg = marker.querySelector('.plane-svg');
+                if(svg) {
+                    svg.style.transform = `rotate(${heading}deg)`;
+                }
             }
         });
-    </script>
 
+        // Shared Tooltip Banner Interactions Engine
+        const tooltip = document.getElementById('radar-tooltip');
+        const tCallsign = document.getElementById('tip-callsign');
+        const tOperator = document.getElementById('tip-operator');
+        const tModel = document.getElementById('tip-model');
+        const tAlt = document.getElementById('tip-alt');
+        const tSpeed = document.getElementById('tip-speed');
+
+        document.querySelectorAll('.flight-marker').forEach(function(marker) {
+            marker.addEventListener('mouseenter', function(e) {
+                tCallsign.innerText = marker.dataset.callsign;
+                tOperator.innerText = marker.dataset.operator;
+                tModel.innerText = marker.dataset.model;
+                tAlt.innerText = marker.dataset.altitude;
+                tSpeed.innerText = marker.dataset.speed;
+                
+                tooltip.style.display = 'block';
+            });
+
+            marker.addEventListener('mousemove', function(e) {
+                // Read exact offsets inside container dynamically
+                const bounds = document.querySelector('.radar-box-area').getBoundingClientRect();
+                tooltip.style.left = (e.clientX - bounds.left + 20) + 'px';
+                tooltip.style.top = (e.clientY - bounds.top + 10) + 'px';
+            });
+
+            marker.addEventListener('mouseleave', function() {
+                tooltip.style.display = 'none';
+            });
+        });
+    </script>
 </body>
 </html>
