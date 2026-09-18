@@ -3,12 +3,13 @@ body {
     max-width: 900px; 
     margin: 40px auto; 
     padding: 0 20px; 
-    color: #333; 
+    color: #e0e0e0; 
+    background: #000000;
 }
 
 
 .search-container { 
-    background: #f7f9fa; 
+    background: #111111; 
     padding: 25px; 
     border-radius: 8px; 
     box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
@@ -33,6 +34,14 @@ input[type="text"] {
 
 input[type="number"] { 
     flex: 1; 
+}
+
+input[type="text"], input[type="number"] {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+    color: #111111;
 }
 
 button { 
@@ -64,7 +73,8 @@ th, td {
 }
 
 th { 
-    background-color: #f2f2f2; 
+    background-color: #1a1a1a; 
+    color: #00ff00;
 }
 
 .error { 
@@ -91,10 +101,14 @@ th {
 .radar-box-area {
     height: 100vh;
     width: 100%;
+    left: 50%;
+    margin-left: calc(-50vw + 50%);
+    transform: translateX(-50%);
     display: flex;
     align-items: center;
-    justify-content: space-around;
+    justify-content: center;
     position: relative; /* Anchor container for absolute tooltips */
+    margin-left: 0;
 }
 
 .radar-box {
@@ -102,16 +116,17 @@ th {
     height: calc(100vh - 50px);
     position: relative;
     border-radius: 50%;
+    filter: drop-shadow(0 0 6px rgba(51, 255, 102, 0.6));
     overflow: hidden;
-    background-color: rgb(246, 252, 246);
+    background-color: #0a1a0a;
     background-image: radial-gradient(circle,
-        #f3f4f3 5%, rgb(28, 29, 28), #f3f4f3 6%, #f3f4f3 10%, rgb(28, 29, 28), #f3f4f3 11%,
-        #f3f4f3 15%, rgb(28, 29, 28), #f3f4f3 16%, #f3f4f3 20%, rgb(28, 29, 28), #f3f4f3 21%,
-        #f3f4f3 25%, rgb(28, 29, 28), #f3f4f3 26%, #f3f4f3 30%, rgb(28, 29, 28), #f3f4f3 31%,
-        #f3f4f3 35%, rgb(28, 29, 28), #f3f4f3 36%, #f3f4f3 40%, rgb(28, 29, 28), #f3f4f3 41%,
-        #f3f4f3 45%, rgb(28, 29, 28), #f3f4f3 46%, #f3f4f3 50%, rgb(28, 29, 28), #f3f4f3 51%,
-        #f3f4f3 55%, rgb(28, 29, 28), #f3f4f3 56%, #f3f4f3 60%, rgb(28, 29, 28), #f3f4f3 61%,
-        #f3f4f3 65%, rgb(28, 29, 28), #f3f4f3 66%, #f3f4f3 70%, rgb(28, 29, 28), #f3f4f3 71%);
+        #000000  5%, #33ff66, #000000  6%, #000000  10%, #33ff66, #000000  11%,
+        #000000  15%, #33ff66, #000000  16%, #000000  20%, #33ff66, #000000  21%,
+        #000000  25%, #33ff66, #000000  26%, #000000  30%, #33ff66, #000000  31%,
+        #000000  35%, #33ff66, #000000  36%, #000000  40%, #33ff66, #000000  41%,
+        #000000  45%, #33ff66, #000000  46%, #000000  50%, #33ff66, #000000  51%,
+        #000000  55%, #33ff66, #000000  56%, #000000  60%, #33ff66, #000000  61%,
+        #000000  65%, #33ff66, #000000  66%, #000000  70%, #33ff66, #000000  71%);
 }
 
 @media only screen and (orientation: portrait) {
@@ -137,8 +152,8 @@ th {
     width: 50%;
     height: 40%;
     transform: translateY(-100%);
-    border-bottom: 2px solid rgb(28, 29, 28);
-    background: linear-gradient(325deg, rgb(28, 29, 28), transparent, transparent);
+    border-bottom: 2px solid #00ff00;
+    background: linear-gradient(325deg, #00ff00, transparent, transparent);
     animation: 5s radarAnim infinite linear;
     transform-origin: left bottom;
 }
