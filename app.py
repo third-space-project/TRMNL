@@ -1,6 +1,7 @@
 import sqlite3
 import requests
 import math
+from functools import lru_cache
 from flask import Flask, render_template, request
 
 app = Flask(__name__)
@@ -16,56 +17,67 @@ def get_airport_info(airport_code):
 
 def calculate_bounding_box(lat, lon, radius_miles=20):
     lat_offset = radius_miles / 69.0
-    lon_offset = radius_miles / 57.0
+    lon_offset = radius_miles / (69.172 * max(math.cos(math.radians(lat)), 0.01))
     return {"lamin": lat - lat_offset, "lamax": lat + lat_offset, "lomin": lon - lon_offset, "lomax": lon + lon_offset}
 
 def project_aircraft_position(flight_lat, flight_lon, airport_lat, airport_lon, radius_miles):
-    lat_delta = flight_lat - airport_lat
-    lon_delta = flight_lon - airport_lon
-    avg_lat = (flight_lat + airport_lat) / 2.0
-    x_miles = lon_delta * 69.172 * math.cos(math.radians(avg_lat))
-    y_miles = lat_delta * 69.0
-
-    x_percent = 50 + (x_miles / radius_miles) * 40
-    y_percent = 50 - (y_miles / radius_miles) * 40
+    earth_radius_miles = 3958.7613
+    airport_lat_radians = math.radians(airport_lat)
+    flight_lat_radians = math.radians(flight_lat)
+    lat_delta = flight_lat_radians - airport_lat_radians
+    lon_delta = math.radians(flight_lon - airport_lon)
+    haversine = (math.sin(lat_delta / 2) ** 2
+                 + math.cos(airport_lat_radians) * math.cos(flight_lat_radians)
+                 * math.sin(lon_delta / 2) ** 2)
+    distance_miles = earth_radius_miles * 2 * math.atan2(math.sqrt(haversine), math.sqrt(1 - haversine))
+    bearing = math.atan2(
+        math.sin(lon_delta) * math.cos(flight_lat_radians),
+        math.cos(airport_lat_radians) * math.sin(flight_lat_radians)
+        - math.sin(airport_lat_radians) * math.cos(flight_lat_radians) * math.cos(lon_delta),
+    )
+    bearing_radians = bearing % (2 * math.pi)
+    x_percent = 50 + math.sin(bearing_radians) * (distance_miles / radius_miles) * 40
+    y_percent = 50 - math.cos(bearing_radians) * (distance_miles / radius_miles) * 40
 
     return {
         "x_percent": max(5, min(95, x_percent)),
         "y_percent": max(5, min(95, y_percent)),
-        "distance_miles": round(math.hypot(x_miles, y_miles), 1),
+        "distance_miles": round(distance_miles, 1),
     }
+
+@lru_cache(maxsize=512)
+def get_aircraft_metadata(icao24):
+    try:
+        response = requests.get(
+            f"https://opensky-network.org/api/metadata/aircraft/icao24/{icao24}",
+            timeout=5,
+        )
+        return response.json() if response.status_code == 200 else None
+    except (requests.exceptions.RequestException, ValueError):
+        return None
+
 
 def resolve_aircraft_meta(icao24, category_id):
     """
     Classifies aircraft category and operator data by parsing transponder blocks 
     and OpenSky category tracking integers.
     """
-    # Default fallback values
-    meta = {"model": "Airliner Jet", "operator": "Commercial Carrier", "type": "commercial"}
+    metadata = get_aircraft_metadata(icao24) or {}
+    meta = {
+        "model": metadata.get("model") or metadata.get("typecode") or "Aircraft type unavailable",
+        "operator": metadata.get("operatorname") or metadata.get("operatoricao") or "Operator unavailable",
+        "type": "commercial",
+    }
     
     if category_id is None:
         return meta
 
-    # OpenSky numeric category mapping using clean integer conditionals
-    if category_id >= 1 and category_id <= 6:
-        meta["model"] = "Light Aircraft"
-        meta["operator"] = "Private Operator"
+    # OpenSky category IDs describe airframe class, not airline or cargo role.
+    if category_id in (2, 3, 8, 9, 10, 11, 12, 14):
         meta["type"] = "private"
-        
-    elif category_id == 7:
-        meta["model"] = "Boeing 737 / Airbus A320"
-        meta["operator"] = "Commercial Carrier"
+
+    elif category_id in (4, 5, 6, 7):
         meta["type"] = "commercial"
-        
-    elif category_id == 8:
-        meta["model"] = "Boeing 747 / Heavy Quad"
-        meta["operator"] = "Global Cargo Flight"
-        meta["type"] = "cargo"
-        
-    elif category_id == 19:
-        meta["model"] = "Military Transport/Jet"
-        meta["operator"] = "Air Force / Defense"
-        meta["type"] = "military"
         
     return meta
 
@@ -102,6 +114,8 @@ def get_nearby_aircraft(airport_code, radius=25):
                     continue
 
                 position = project_aircraft_position(latitude, longitude, airport['lat'], airport['lon'], radius)
+                if position["distance_miles"] > radius:
+                    continue
                 
                 # Fetch telemetry fields safely
                 velocity_ms = flight[9]

@@ -183,7 +183,7 @@ th {
 }
 
 
-.flight-marker.commercial .plane-svg { fill: #3a86ff; } /* Azure Blue Jet */
+.flight-marker.commercial .plane-svg { fill: #3aff96; } /* Azure Blue Jet */
 .flight-marker.cargo .plane-svg      { fill: #ffbe0b; } /* Warning Amber Cargo */
 .flight-marker.private .plane-svg    { fill: #06d6a0; } /* Emerald Light GA */
 .flight-marker.military .plane-svg   { fill: #ef476f; } /* Crimson Performance Airframe */
@@ -234,7 +234,7 @@ th {
     display: block;
     font-size: 16px;
     font-weight: 800;
-    color: #4cc9f0;
+    color: #4cf057;
     letter-spacing: 0.5px;
 }
 
