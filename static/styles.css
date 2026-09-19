@@ -99,26 +99,22 @@ th {
 
 
 .radar-box-area {
-    height: 100vh;
+    min-height: 60vh;
     width: 100%;
-    left: 50%;
-    margin-left: calc(-50vw + 50%);
-    transform: translateX(-50%);
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative; /* Anchor container for absolute tooltips */
-    margin-left: 0;
 }
 
 .radar-box {
-    width: calc(100vh - 50px);
-    height: calc(100vh - 50px);
+    width: min(90vw, 90vh);
+    height: min(90vw, 90vh);
     position: relative;
     border-radius: 50%;
     filter: drop-shadow(0 0 6px rgba(51, 255, 102, 0.6));
     overflow: hidden;
-    background-color: #0a1a0a;
+    background-color: #000000;
     background-image: radial-gradient(circle,
         #000000  5%, #33ff66, #000000  6%, #000000  10%, #33ff66, #000000  11%,
         #000000  15%, #33ff66, #000000  16%, #000000  20%, #33ff66, #000000  21%,
@@ -127,13 +123,6 @@ th {
         #000000  45%, #33ff66, #000000  46%, #000000  50%, #33ff66, #000000  51%,
         #000000  55%, #33ff66, #000000  56%, #000000  60%, #33ff66, #000000  61%,
         #000000  65%, #33ff66, #000000  66%, #000000  70%, #33ff66, #000000  71%);
-}
-
-@media only screen and (orientation: portrait) {
-    .radar-box {
-        width: calc(100vw - 50px);
-        height: calc(100vw - 50px);
-    }
 }
 
 .radar {
