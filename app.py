@@ -1,6 +1,7 @@
 import sqlite3
 import requests
 import math
+import re
 from pathlib import Path
 from functools import lru_cache
 from flask import Flask, jsonify, render_template, request
@@ -59,7 +60,142 @@ def get_aircraft_metadata(icao24):
         return None
 
 
-def resolve_aircraft_meta(icao24, category_id):
+OPERATOR_PREFIXES = {
+    "AAL": "American Airlines",
+    "ACA": "Air Canada",
+    "AFR": "Air France",
+    "AIC": "Air India",
+    "ANA": "All Nippon Airways",
+    "ASA": "Alaska Airlines",
+    "BAW": "British Airways",
+    "BER": "Air Berlin",
+    "DAL": "Delta Air Lines",
+    "DLH": "Lufthansa",
+    "EZY": "easyJet",
+    "FDX": "FedEx",
+    "GFA": "Gulf Air",
+    "HKA": "Hainan Airlines",
+    "JAL": "Japan Airlines",
+    "KLM": "KLM Royal Dutch Airlines",
+    "LHA": "Lufthansa",
+    "NKS": "Spirit Airlines",
+    "QFA": "Qantas",
+    "SWA": "Southwest Airlines",
+    "THY": "Turkish Airlines",
+    "UAL": "United Airlines",
+    "UPS": "United Parcel Service",
+    "VIR": "Virgin Atlantic",
+    "VLG": "Vueling",
+    "NAX": "Norwegian Air Shuttle",
+    "KAL": "Korean Air",
+    "ETD": "Etihad Airways",
+    "UAE": "Emirates",
+    "RYR": "Ryanair",
+    "IBE": "Iberia",
+    "BPA": "Jet2",
+    "SAS": "Scandinavian Airlines",
+    "AZA": "Alitalia",
+    "AFL": "AeroFlot",
+    "SKW": "SkyWest Airlines",
+    "CPA": "Cathay Pacific",
+    "CXA": "Cathay Pacific",
+    "DXA": "DHL Aviation",
+    "CFS": "China Southern Airlines",
+    "CSN": "China Southern Airlines",
+    "EVA": "EVA Air",
+    "JBU": "JetBlue Airways",
+    "NWA": "Northwest Airlines",
+    "TAM": "LATAM Airlines",
+    "AMX": "Aeromexico",
+    "BIM": "Biman Bangladesh Airlines",
+    "HVN": "Vietnam Airlines",
+    "LNX": "Lynx Air",
+    "MAY": "Malaysia Airlines",
+    "MUA": "KLM Cityhopper",
+}
+
+MODEL_ALIASES = {
+    "A319": "Airbus A319",
+    "A320": "Airbus A320",
+    "A321": "Airbus A321",
+    "A332": "Airbus A330-200",
+    "A333": "Airbus A330-300",
+    "A342": "Airbus A340-200",
+    "A343": "Airbus A340-300",
+    "A345": "Airbus A340-500",
+    "A346": "Airbus A340-600",
+    "A350": "Airbus A350",
+    "A359": "Airbus A350-900",
+    "A388": "Airbus A380-800",
+    "B737": "Boeing 737",
+    "B737800": "Boeing 737-800",
+    "B738": "Boeing 737-800",
+    "B739": "Boeing 737-900",
+    "B744": "Boeing 747-400",
+    "B752": "Boeing 757-200",
+    "B753": "Boeing 757-300",
+    "B763": "Boeing 767-300",
+    "B764": "Boeing 767-400",
+    "B772": "Boeing 777-200",
+    "B773": "Boeing 777-300",
+    "B77L": "Boeing 777-200LR",
+    "B788": "Boeing 787-8",
+    "B789": "Boeing 787-9",
+    "B78X": "Boeing 787",
+    "B190": "Beechcraft 1900",
+    "E145": "Embraer ERJ-145",
+    "E170": "Embraer E170",
+    "E190": "Embraer E190",
+    "E195": "Embraer E195",
+    "CRJ2": "Bombardier CRJ200",
+    "CRJ7": "Bombardier CRJ700",
+    "CRJ9": "Bombardier CRJ900",
+    "C172": "Cessna 172",
+    "C182": "Cessna 182",
+    "P28A": "Piper PA-28 Cherokee",
+    "AT72": "ATR 72-600",
+    "AT75": "ATR 75",
+    "DH8D": "De Havilland Dash 8 Q400",
+    "MD83": "McDonnell Douglas MD-83",
+    "MD88": "McDonnell Douglas MD-88",
+    "MD11": "McDonnell Douglas MD-11",
+    "A320F": "Airbus A320 Freighter",
+    "B737F": "Boeing 737 Freighter",
+    "B767F": "Boeing 767 Freighter",
+    "B777F": "Boeing 777 Freighter",
+}
+
+
+def normalize_aircraft_model(raw_model):
+    if not raw_model:
+        return "Aircraft type unavailable"
+    candidate = re.sub(r"[^A-Z0-9]", "", str(raw_model).upper())
+    if candidate in MODEL_ALIASES:
+        return MODEL_ALIASES[candidate]
+    for prefix, label in sorted(MODEL_ALIASES.items(), key=lambda item: len(item[0]), reverse=True):
+        if candidate.startswith(prefix):
+            return label
+    return str(raw_model).strip() or "Aircraft type unavailable"
+
+
+def resolve_operator_name(callsign, metadata=None):
+    if metadata and metadata.get("operatorname"):
+        return metadata["operatorname"]
+    if metadata and metadata.get("operatoricao"):
+        return metadata["operatoricao"]
+    prefix = (callsign or "").strip().upper()
+    if len(prefix) >= 3:
+        airline = OPERATOR_PREFIXES.get(prefix[:3])
+        if airline:
+            return airline
+    if len(prefix) >= 2:
+        airline = OPERATOR_PREFIXES.get(prefix[:2])
+        if airline:
+            return airline
+    return "Operator unavailable"
+
+
+def resolve_aircraft_meta(icao24, category_id, callsign=None):
     metadata = get_aircraft_metadata(icao24) or {}
     category_names = {
         1: "Unknown",
@@ -80,8 +216,8 @@ def resolve_aircraft_meta(icao24, category_id):
         16: "Point obstacle",
     }
     typecode = (metadata.get("typecode") or "").upper()
-    model = metadata.get("model") or typecode or "Aircraft type unavailable"
-    operator = metadata.get("operatorname") or metadata.get("operatoricao")
+    model = normalize_aircraft_model(metadata.get("model") or typecode)
+    operator = resolve_operator_name(callsign, metadata)
     aircraft_type = category_names.get(category_id, "Unknown")
 
     if category_id in (2, 3, 6, 7, 8, 9, 10, 12):
@@ -93,13 +229,12 @@ def resolve_aircraft_meta(icao24, category_id):
     else:
         visual_type = "commercial"
 
-    meta = {
+    return {
         "model": model,
         "operator": operator or "Operator unavailable",
         "aircraft_type": aircraft_type,
         "type": visual_type,
     }
-    return meta
 
 
 
@@ -144,7 +279,7 @@ def get_nearby_aircraft(airport_code, radius=25, operator_filter=None):
                 category_id = flight[17] if len(flight) > 17 else None
                 
                 callsign = flight[1].strip() if flight[1] else "UNKNOWN"
-                meta = resolve_aircraft_meta(icao24, category_id)
+                meta = resolve_aircraft_meta(icao24, category_id, callsign=callsign)
                 if meta["operator"] == "Operator unavailable" and callsign != "UNKNOWN":
                     meta["operator"] = f"{callsign[:3]} (callsign)"
                 if operator_filter and operator_filter.lower() not in meta["operator"].lower():
