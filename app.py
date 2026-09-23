@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import requests
 import math
@@ -332,4 +333,4 @@ def flights_api():
     return jsonify(result), 404 if "error" in result else 200
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
