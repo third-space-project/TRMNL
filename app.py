@@ -1,13 +1,15 @@
 import sqlite3
 import requests
 import math
+from pathlib import Path
 from functools import lru_cache
-from flask import Flask, render_template, request
+from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__)
+DATABASE_PATH = Path(__file__).resolve().parent / "backend" / "database" / "airports.db"
 
 def get_airport_info(airport_code):
-    conn = sqlite3.connect('backend/database/airports.db')
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     query = "SELECT latitude_deg, longitude_deg, name FROM airports WHERE ident = ? OR iata_code = ? LIMIT 1"
     cursor.execute(query, (airport_code.upper(), airport_code.upper()))
@@ -58,33 +60,51 @@ def get_aircraft_metadata(icao24):
 
 
 def resolve_aircraft_meta(icao24, category_id):
-    """
-    Classifies aircraft category and operator data by parsing transponder blocks 
-    and OpenSky category tracking integers.
-    """
     metadata = get_aircraft_metadata(icao24) or {}
-    meta = {
-        "model": metadata.get("model") or metadata.get("typecode") or "Aircraft type unavailable",
-        "operator": metadata.get("operatorname") or metadata.get("operatoricao") or "Operator unavailable",
-        "type": "commercial",
+    category_names = {
+        1: "Unknown",
+        2: "Light",
+        3: "Small",
+        4: "Large",
+        5: "High performance",
+        6: "Helicopter",
+        7: "Glider",
+        8: "Lighter-than-air",
+        9: "Parachutist",
+        10: "Ultralight",
+        11: "Reserved",
+        12: "Drone",
+        13: "Space vehicle",
+        14: "Emergency",
+        15: "Service",
+        16: "Point obstacle",
     }
-    
-    if category_id is None:
-        return meta
+    typecode = (metadata.get("typecode") or "").upper()
+    model = metadata.get("model") or typecode or "Aircraft type unavailable"
+    operator = metadata.get("operatorname") or metadata.get("operatoricao")
+    aircraft_type = category_names.get(category_id, "Unknown")
 
-    # OpenSky category IDs describe airframe class, not airline or cargo role.
-    if category_id in (2, 3, 8, 9, 10, 11, 12, 14):
-        meta["type"] = "private"
+    if category_id in (2, 3, 6, 7, 8, 9, 10, 12):
+        visual_type = "private"
+    elif category_id in (13, 14, 15, 16):
+        visual_type = "military"
+    elif typecode.endswith("F") or "FREIGHT" in model.upper() or "CARGO" in model.upper():
+        visual_type = "cargo"
+    else:
+        visual_type = "commercial"
 
-    elif category_id in (4, 5, 6, 7):
-        meta["type"] = "commercial"
-        
+    meta = {
+        "model": model,
+        "operator": operator or "Operator unavailable",
+        "aircraft_type": aircraft_type,
+        "type": visual_type,
+    }
     return meta
 
 
 
 
-def get_nearby_aircraft(airport_code, radius=25):
+def get_nearby_aircraft(airport_code, radius=25, operator_filter=None):
     airport = get_airport_info(airport_code)
     if not airport:
         return {"error": f"Airport '{airport_code.upper()}' could not be found in the database."}
@@ -123,16 +143,23 @@ def get_nearby_aircraft(airport_code, radius=25):
                 heading = int(flight[10]) if flight[10] is not None else 0
                 category_id = flight[17] if len(flight) > 17 else None
                 
+                callsign = flight[1].strip() if flight[1] else "UNKNOWN"
                 meta = resolve_aircraft_meta(icao24, category_id)
+                if meta["operator"] == "Operator unavailable" and callsign != "UNKNOWN":
+                    meta["operator"] = f"{callsign[:3]} (callsign)"
+                if operator_filter and operator_filter.lower() not in meta["operator"].lower():
+                    continue
 
                 aircraft_list.append({
-                    "callsign": flight[1].strip() if flight[1] else "UNKNOWN",
+                    "icao24": icao24,
+                    "callsign": callsign,
                     "altitude": f"{int(flight[7] * 3.28084)} ft" if flight[7] is not None else "Ground / Unknown",
                     "on_ground": "Yes" if flight[8] else "No",
                     "speed": f"{speed_knots} kts",
                     "heading": heading,
                     "model": meta["model"],
                     "operator": meta["operator"],
+                    "aircraft_type": meta["aircraft_type"],
                     "type": meta["type"], # commercial, cargo, private, military
                     "x_percent": position["x_percent"],
                     "y_percent": position["y_percent"],
@@ -143,6 +170,8 @@ def get_nearby_aircraft(airport_code, radius=25):
             "airport_name": airport['name'],
             "code": airport_code.upper(),
             "search_radius": radius,
+            "tower": {"lat": airport["lat"], "lon": airport["lon"], "label": "ATC tower"},
+            "operator_filter": operator_filter or "",
             "aircraft_count": len(aircraft_list),
             "flights": aircraft_list
         }
@@ -151,14 +180,21 @@ def get_nearby_aircraft(airport_code, radius=25):
 
 @app.route("/", methods=["GET"])
 def home():
-    airport_query = request.args.get("airport")
-    radius_query = request.args.get("radius", default=25, type=int)
+    return render_template("index.html")
+
+
+@app.route("/api/flights", methods=["GET"])
+def flights_api():
+    airport_query = request.args.get("airport", "").strip()
+    radius_query = request.args.get("radius", default=25, type=int) or 25
+    operator_filter = request.args.get("operator", "").strip() or None
 
     if not airport_query:
-        return render_template("index.html")
+        return jsonify({"error": "An airport code is required."}), 400
 
-    result = get_nearby_aircraft(airport_query, radius=radius_query)
-    return render_template("index.html", **result)
+    radius_query = max(5, min(250, radius_query))
+    result = get_nearby_aircraft(airport_query, radius=radius_query, operator_filter=operator_filter)
+    return jsonify(result), 404 if "error" in result else 200
 
 if __name__ == "__main__":
     app.run(debug=True)

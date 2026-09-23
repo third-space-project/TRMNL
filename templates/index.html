@@ -2,151 +2,133 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Live Airport Aircraft Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TRMNL Flight Radar</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
+    <main class="app-shell">
+        <header class="app-header">
+            <div><p class="eyebrow">LIVE AIRSPACE</p><h1>TRMNL</h1></div>
+            <div class="header-actions">
+                <p id="status" class="status" role="status">Choose an airport to begin</p>
+                <button id="search-toggle" class="secondary-button" type="button" aria-expanded="true" aria-controls="search-panel">Hide search</button>
+            </div>
+        </header>
 
-    <h1>Live Aircraft Radar Tracker</h1>
+        <section id="search-panel" class="search-container" aria-label="Flight search">
+            <form id="search-form" class="form-group">
+                <label><span>Airport</span><input id="airport" type="text" placeholder="HECA, KLAX, EGLL" required></label>
+                <label><span>Radius (mi)</span><input id="radius" type="number" value="25" min="5" max="250"></label>
+                <label><span>Operator</span><select id="operator"><option value="">All operators</option></select></label>
+                <button type="submit">Track flights</button>
+            </form>
+            <div class="view-controls">
+                <label class="toggle-control"><input id="table-toggle" type="checkbox"><span>Show aircraft table</span></label>
+                <span id="result-summary" class="result-summary"></span>
+            </div>
+        </section>
 
-    <div class="search-container">
-        <form action="/" method="GET" class="form-group">
-            <input type="text" name="airport" placeholder="Enter Airport Code (e.g., HECA, KLAX, EGLL)" value="{{ code or '' }}" required>
-            <input type="number" name="radius" placeholder="Radius (miles)" value="{{ search_radius or 25 }}" min="5" max="250">
-            <button type="submit">Track Flights</button>
-        </form>
-    </div>
+        <section class="radar-box-area" aria-label="Live radar">
+            <div id="radar-box" class="radar-box">
+                <div class="radar" aria-hidden="true"></div>
+                <div class="tower-marker" aria-label="ATC tower, radar center"><span class="tower-icon">+</span><span>ATC tower</span></div>
+            </div>
+            <div id="radar-tooltip" class="radar-hover-banner" hidden>
+                <div class="tooltip-row header-row"><span id="tip-callsign" class="banner-title">---</span><span id="tip-operator" class="banner-sub">---</span></div>
+                <div class="tooltip-grid">
+                    <div class="grid-item"><strong>Type:</strong> <span id="tip-type">---</span></div>
+                    <div class="grid-item"><strong>Model:</strong> <span id="tip-model">---</span></div>
+                    <div class="grid-item"><strong>Altitude:</strong> <span id="tip-alt">---</span></div>
+                    <div class="grid-item"><strong>Speed:</strong> <span id="tip-speed">---</span></div>
+                </div>
+            </div>
+        </section>
 
-    <div class="radar-box-area">
-        <div class="radar-box">
-            <div class="radar" aria-hidden="true"></div>
-
-            {% if airport_name %}
-                {% for aircraft in flights %}
-                    <div class="flight-marker {{ aircraft.type }}"
-                         data-x="{{ aircraft.x_percent }}"
-                         data-y="{{ aircraft.y_percent }}"
-                         data-heading="{{ aircraft.heading }}"
-                         data-callsign="{{ aircraft.callsign }}"
-                         data-model="{{ aircraft.model }}"
-                         data-altitude="{{ aircraft.altitude }}"
-                         data-speed="{{ aircraft.speed }}"
-                         data-operator="{{ aircraft.operator }}">
-                        
-                        <!-- Inline responsive vector graphics grouped cleanly per size profile -->
-                        <svg class="plane-svg" viewBox="0 0 512 512" xmlns="http://w3.org">
-                            {% if aircraft.type == 'commercial' %}
-                                <!-- Commercial Twin-Engine Jet -->
-                                <path d="M256 0c-11.8 0-21.3 14.3-21.3 32v150.1l-182.2 99c-10 5.4-14.8 16.5-11.4 27.2 3.4 10.7 14.2 17.7 25.5 16.1l168.1-23.7V408l-45.7 34.3c-6.1 4.6-9.1 12.3-7.8 19.9l4.6 27.4c1.9 11.2 12.7 18.2 23.6 15.1l56.6-16.2 56.6 16.2c10.9 3.1 21.7-3.9 23.6-15.1l4.6-27.4c1.3-7.6-1.7-15.3-7.8-19.9L322.7 408V301.7l168.1 23.7c11.3 1.6 22.1-5.4 25.5-16.1 3.4-10.7-1.4-21.8-11.4-27.2L349.3 182.1V32c0-17.7-9.5-32-21.3-32H256z"/>
-                            {% elif aircraft.type == 'cargo' %}
-                                <!-- Cargo/Heavy Widebody Quad Carrier -->
-                                <path d="M256 0c-15 0-24 18-24 36v134L32 248c-12 5-18 18-15 30s16 18 28 15l179-33V400l-55 45c-5 4-8 10-7 16l5 30c2 11 14 17 24 13l60-22 60 22c10 4 22-2 24-13l5-30c1-6-2-12-7-16l-55-45V275l179 33c12 3 25-3 28-15s-3-25-15-30L304 170V36c0-18-9-36-24-36h-24z" fill-opacity="0.95"/>
-                            {% elif aircraft.type == 'private' %}
-                                <!-- Small General Aviation Straight-Wing Plane -->
-                                <path d="M256 40c-8 0-15 10-15 25v125L10 190c-6 0-10 6-10 12v15c0 6 5 10 11 9l234-36v150l-30 25v20l45-12 45 12v-20l-30-25V315l234 36c6 1 11-3 11-9v-15c0-6-4-12-10-12L286 190V65c0-15-7-25-15-25h-15z"/>
-                            {% else %}
-                                <!-- Delta Wing Military Jet Fighter -->
-                                <path d="M256 0l-40 120L16 380h200v80l-40 40h160l-40-40v-80h200L296 120 256 0z"/>
-                            {% endif %}
-                        </svg>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- The Shared Dynamic Hover Tooltip Banner Blueprint -->
-    <div id="radar-tooltip" class="radar-hover-banner" style="display: none;">
-        <div class="tooltip-row header-row">
-            <span id="tip-callsign" class="banner-title">---</span>
-            <span id="tip-operator" class="banner-sub">---</span>
-        </div>
-        <div class="tooltip-grid">
-            <div class="grid-item"><strong>Model:</strong> <span id="tip-model">---</span></div>
-            <div class="grid-item"><strong>Altitude:</strong> <span id="tip-alt">---</span></div>
-            <div class="grid-item"><strong>Speed:</strong> <span id="tip-speed">---</span></div>
-        </div>
-    </div>
-
-    {% if error %}
-        <div class="error">{{ error }}</div>
-    {% endif %}
-
-    {% if airport_name %}
-        <h2>Live Tracker for {{ airport_name }} ({{ code }})</h2>
-        <p>Radius: <strong>{{ search_radius }} miles</strong> | Total Aircraft Found: <strong>{{ aircraft_count }}</strong></p>
-        
-        <table>
-            <thead>
-                <tr>
-                    <th>Callsign</th>
-                    <th>Aircraft Category</th>
-                    <th>Altitude</th>
-                    <th>Ground Speed</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for aircraft in flights %}
-                <tr>
-                    <td><strong>{{ aircraft.callsign }}</strong></td>
-                    <td><span class="type-pill {{ aircraft.type }}">{{ aircraft.type.upper() }}</span> ({{ aircraft.model }})</td>
-                    <td>{{ aircraft.altitude }}</td>
-                    <td>{{ aircraft.speed }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    {% endif %}
+        <section id="table-section" class="table-section" hidden>
+            <div class="section-heading"><h2>Aircraft in range</h2><span id="table-count"></span></div>
+            <div class="table-scroll"><table>
+                <thead><tr><th>Callsign</th><th>Operator</th><th>Aircraft type</th><th>Altitude</th><th>Ground speed</th></tr></thead>
+                <tbody id="aircraft-rows"></tbody>
+            </table></div>
+        </section>
+    </main>
 
     <script>
-        // Node updates and spatial mapping handling rotations
-        document.querySelectorAll('.flight-marker').forEach(function(marker) {
-            const x = parseFloat(marker.dataset.x);
-            const y = parseFloat(marker.dataset.y);
-            const heading = parseFloat(marker.dataset.heading) || 0;
-            
-            if (!Number.isNaN(x) && !Number.isNaN(y)) {
-                marker.style.left = x + '%';
-                marker.style.top = y + '%';
-                
-                // Rotates vector paths accurately inside tracking system coordinates
-                const svg = marker.querySelector('.plane-svg');
-                if(svg) {
-                    svg.style.transform = `rotate(${heading}deg)`;
-                }
-            }
-        });
-
-        // Shared Tooltip Banner Interactions Engine
+        const form = document.getElementById('search-form');
+        const airportInput = document.getElementById('airport');
+        const radiusInput = document.getElementById('radius');
+        const operatorInput = document.getElementById('operator');
+        const tableToggle = document.getElementById('table-toggle');
+        const tableSection = document.getElementById('table-section');
+        const radar = document.getElementById('radar-box');
+        const status = document.getElementById('status');
+        const summary = document.getElementById('result-summary');
+        const rows = document.getElementById('aircraft-rows');
         const tooltip = document.getElementById('radar-tooltip');
-        const tCallsign = document.getElementById('tip-callsign');
-        const tOperator = document.getElementById('tip-operator');
-        const tModel = document.getElementById('tip-model');
-        const tAlt = document.getElementById('tip-alt');
-        const tSpeed = document.getElementById('tip-speed');
+        const searchPanel = document.getElementById('search-panel');
+        const searchToggle = document.getElementById('search-toggle');
+        let refreshTimer;
+        let requestInFlight = false;
+        const planePaths = {
+            commercial: 'M256 0c-12 0-21 14-21 32v150L53 281c-10 5-15 17-11 27 3 11 14 18 26 16l168-24v107l-46 35c-6 5-9 12-8 20l5 27c2 11 13 18 24 15l45-13 45 13c11 3 22-4 24-15l5-27c1-8-2-15-8-20l-46-35V300l168 24c12 2 23-5 26-16 4-10-1-22-11-27l-182-99V32c0-18-9-32-21-32z',
+            cargo: 'M256 0c-15 0-24 18-24 36v134L32 248c-12 5-18 18-15 30s16 18 28 15l179-33V400l-55 45c-5 4-8 10-7 16l5 30c2 11 14 17 24 13l60-22 60 22c10 4 22-2 24-13l5-30c1-6-2-12-7-16l-55-45V275l179 33c12 3 25-3 28-15s-3-25-15-30L304 170V36c0-18-9-36-24-36h-24z',
+            private: 'M256 40c-8 0-15 10-15 25v125L10 190c-6 0-10 6-10 12v15c0 6 5 10 11 9l234-36v150l-30 25v20l45-12 45 12v-20l-30-25V315l234 36c6 1 11-3 11-9v-15c0-6-4-12-10-12L286 190V65c0-15-7-25-15-25h-15z',
+            military: 'M256 0l-40 120L16 380h200v80l-40 40h160l-40-40v-80h200L296 120 256 0z'
+        };
 
-        document.querySelectorAll('.flight-marker').forEach(function(marker) {
-            marker.addEventListener('mouseenter', function(e) {
-                tCallsign.innerText = marker.dataset.callsign;
-                tOperator.innerText = marker.dataset.operator;
-                tModel.innerText = marker.dataset.model;
-                tAlt.innerText = marker.dataset.altitude;
-                tSpeed.innerText = marker.dataset.speed;
-                
-                tooltip.style.display = 'block';
-            });
-
-            marker.addEventListener('mousemove', function(e) {
-                // Read exact offsets inside container dynamically
-                const bounds = document.querySelector('.radar-box-area').getBoundingClientRect();
-                tooltip.style.left = (e.clientX - bounds.left + 20) + 'px';
-                tooltip.style.top = (e.clientY - bounds.top + 10) + 'px';
-            });
-
-            marker.addEventListener('mouseleave', function() {
-                tooltip.style.display = 'none';
-            });
+        function setText(id, value) { document.getElementById(id).textContent = value || 'Unavailable'; }
+        function showTooltip(marker, event) {
+            setText('tip-callsign', marker.dataset.callsign); setText('tip-operator', marker.dataset.operator);
+            setText('tip-type', marker.dataset.aircraftType); setText('tip-model', marker.dataset.model);
+            setText('tip-alt', marker.dataset.altitude); setText('tip-speed', marker.dataset.speed);
+            const bounds = document.querySelector('.radar-box-area').getBoundingClientRect();
+            tooltip.hidden = false; tooltip.style.left = `${event.clientX - bounds.left + 16}px`; tooltip.style.top = `${event.clientY - bounds.top + 12}px`;
+        }
+        function addMarker(aircraft) {
+            const marker = document.createElement('div'); marker.className = `flight-marker ${aircraft.type || 'commercial'}`;
+            marker.style.left = `${aircraft.x_percent}%`; marker.style.top = `${aircraft.y_percent}%`;
+            marker.dataset.callsign = aircraft.callsign; marker.dataset.operator = aircraft.operator; marker.dataset.aircraftType = aircraft.aircraft_type;
+            marker.dataset.model = aircraft.model; marker.dataset.altitude = aircraft.altitude; marker.dataset.speed = aircraft.speed;
+            marker.title = `${aircraft.callsign} - ${aircraft.aircraft_type}`;
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 512 512'); svg.classList.add('plane-svg');
+            svg.style.transform = `rotate(${Number(aircraft.heading) || 0}deg)`;
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', planePaths[aircraft.type] || planePaths.commercial); svg.appendChild(path); marker.appendChild(svg); radar.appendChild(marker);
+            marker.addEventListener('mouseenter', event => showTooltip(marker, event)); marker.addEventListener('mousemove', event => showTooltip(marker, event)); marker.addEventListener('mouseleave', () => { tooltip.hidden = true; });
+        }
+        function addCell(row, value, className) { const cell = document.createElement('td'); cell.textContent = value; if (className) cell.className = className; row.appendChild(cell); }
+        function renderTable(flights) {
+            rows.replaceChildren(); flights.forEach(aircraft => { const row = document.createElement('tr'); addCell(row, aircraft.callsign, 'callsign-cell'); addCell(row, aircraft.operator); addCell(row, `${aircraft.aircraft_type} (${aircraft.model})`); addCell(row, aircraft.altitude); addCell(row, aircraft.speed); rows.appendChild(row); });
+            document.getElementById('table-count').textContent = `${flights.length} aircraft`;
+        }
+        function populateOperators(flights) {
+            const current = operatorInput.value; const operators = [...new Set(flights.map(flight => flight.operator).filter(Boolean))].sort();
+            operatorInput.replaceChildren(new Option('All operators', '')); operators.forEach(operator => operatorInput.add(new Option(operator, operator))); if (operators.includes(current)) operatorInput.value = current;
+        }
+        async function loadFlights(event, silent = false) {
+            if (event) event.preventDefault();
+            const airport = airportInput.value.trim().toUpperCase();
+            if (!airport || requestInFlight) return;
+            const params = new URLSearchParams({ airport, radius: radiusInput.value || '25' }); if (operatorInput.value) params.set('operator', operatorInput.value);
+            requestInFlight = true;
+            if (!silent) status.textContent = 'Connecting to OpenSky...';
+            status.classList.remove('error-status');
+            try {
+                const response = await fetch(`/api/flights?${params}`); const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Flight data unavailable');
+                document.querySelectorAll('.flight-marker').forEach(marker => marker.remove()); result.flights.forEach(addMarker); populateOperators(result.flights); renderTable(result.flights);
+                summary.textContent = `${result.aircraft_count} aircraft within ${result.search_radius} mi`; status.textContent = `${silent ? 'Live · ' : ''}${result.airport_name} (${result.code})`; history.replaceState(null, '', `/?${params}`);
+                clearInterval(refreshTimer); refreshTimer = setInterval(() => loadFlights(null, true), 30000);
+            } catch (error) { status.textContent = error.message; status.classList.add('error-status'); summary.textContent = ''; }
+            finally { requestInFlight = false; }
+        }
+        searchToggle.addEventListener('click', () => {
+            const isHidden = searchPanel.hidden;
+            searchPanel.hidden = !isHidden;
+            searchToggle.setAttribute('aria-expanded', String(isHidden));
+            searchToggle.textContent = isHidden ? 'Hide search' : 'Show search';
         });
+        form.addEventListener('submit', loadFlights); operatorInput.addEventListener('change', loadFlights); tableToggle.addEventListener('change', () => { tableSection.hidden = !tableToggle.checked; });
+        const initialParams = new URLSearchParams(window.location.search); if (initialParams.get('airport')) { airportInput.value = initialParams.get('airport'); radiusInput.value = initialParams.get('radius') || '25'; loadFlights(); }
     </script>
 </body>
 </html>
