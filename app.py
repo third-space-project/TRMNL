@@ -3,12 +3,15 @@ import sqlite3
 import requests
 import math
 import re
+import time
 from pathlib import Path
 from functools import lru_cache
 from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__)
 DATABASE_PATH = Path(__file__).resolve().parent / "backend" / "database" / "airports.db"
+OPEN_SKY_CACHE_TTL_SECONDS = 25
+OPEN_SKY_CACHE = {}
 
 def get_airport_info(airport_code):
     conn = sqlite3.connect(DATABASE_PATH)
@@ -240,22 +243,65 @@ def resolve_aircraft_meta(icao24, category_id, callsign=None):
 
 
 
+def build_demo_aircraft(airport, radius=25, operator_filter=None):
+    sample_flights = [
+        {"callsign": "AAL128", "operator": "American Airlines", "model": "Airbus A320", "type": "commercial", "aircraft_type": "Large", "heading": 115, "offset_deg": 0.28, "distance": 7.4},
+        {"callsign": "DAL411", "operator": "Delta Air Lines", "model": "Boeing 737-800", "type": "commercial", "aircraft_type": "Large", "heading": 230, "offset_deg": 0.16, "distance": 12.2},
+        {"callsign": "UPS214", "operator": "United Parcel Service", "model": "Boeing 767 Freighter", "type": "cargo", "aircraft_type": "Large", "heading": 300, "offset_deg": 0.34, "distance": 18.7},
+        {"callsign": "N123AB", "operator": "Private Owner", "model": "Cessna 172", "type": "private", "aircraft_type": "Small", "heading": 80, "offset_deg": -0.22, "distance": 5.9},
+    ]
+
+    flights = []
+    for idx, sample in enumerate(sample_flights):
+        if operator_filter and operator_filter.lower() not in sample["operator"].lower():
+            continue
+        bearing = (idx * 1.7) + sample["offset_deg"]
+        lat_offset = (sample["distance"] / 69.0) * math.cos(bearing)
+        lon_offset = (sample["distance"] / (69.172 * max(math.cos(math.radians(airport['lat'])), 0.01))) * math.sin(bearing)
+        lat = airport['lat'] + lat_offset
+        lon = airport['lon'] + lon_offset
+        position = project_aircraft_position(lat, lon, airport['lat'], airport['lon'], radius)
+        flights.append({
+            "icao24": f"demo{idx}",
+            "callsign": sample["callsign"],
+            "altitude": f"{12000 + idx * 2500} ft",
+            "on_ground": "No",
+            "speed": f"{420 - idx * 40} kts",
+            "heading": sample["heading"],
+            "model": sample["model"],
+            "operator": sample["operator"],
+            "aircraft_type": sample["aircraft_type"],
+            "type": sample["type"],
+            "x_percent": position["x_percent"],
+            "y_percent": position["y_percent"],
+            "distance_miles": position["distance_miles"],
+        })
+
+    return flights
+
+
 def get_nearby_aircraft(airport_code, radius=25, operator_filter=None):
     airport = get_airport_info(airport_code)
     if not airport:
         return {"error": f"Airport '{airport_code.upper()}' could not be found in the database."}
 
+    cache_key = (airport_code.upper(), radius, (operator_filter or "").lower())
+    cached_result = OPEN_SKY_CACHE.get(cache_key)
+    if cached_result and time.monotonic() - cached_result["timestamp"] < OPEN_SKY_CACHE_TTL_SECONDS:
+        return cached_result["result"]
+
     params = calculate_bounding_box(airport['lat'], airport['lon'], radius_miles=radius)
     url = "https://opensky-network.org/api/states/all"
+    last_error = None
 
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Flask Backend Flight Tracker)'}
-        response = requests.get(url, params=params, headers=headers, timeout=10)
+        headers = {'User-Agent': 'TRMNL Flight Radar/1.0'}
+        response = requests.get(url, params=params, headers=headers, timeout=6)
 
         if response.status_code == 429:
             return {"error": "OpenSky API rate limit reached. Please wait a minute."}
-        elif response.status_code != 200:
-            return {"error": f"OpenSky API returned status code {response.status_code}"}
+        if response.status_code != 200:
+            raise requests.exceptions.HTTPError(f"status {response.status_code}")
 
         data = response.json()
         states = data.get("states", []) or []
@@ -272,13 +318,12 @@ def get_nearby_aircraft(airport_code, radius=25, operator_filter=None):
                 position = project_aircraft_position(latitude, longitude, airport['lat'], airport['lon'], radius)
                 if position["distance_miles"] > radius:
                     continue
-                
-                # Fetch telemetry fields safely
+
                 velocity_ms = flight[9]
                 speed_knots = int(velocity_ms * 1.94384) if velocity_ms is not None else 0
                 heading = int(flight[10]) if flight[10] is not None else 0
                 category_id = flight[17] if len(flight) > 17 else None
-                
+
                 callsign = flight[1].strip() if flight[1] else "UNKNOWN"
                 meta = resolve_aircraft_meta(icao24, category_id, callsign=callsign)
                 if meta["operator"] == "Operator unavailable" and callsign != "UNKNOWN":
@@ -296,23 +341,39 @@ def get_nearby_aircraft(airport_code, radius=25, operator_filter=None):
                     "model": meta["model"],
                     "operator": meta["operator"],
                     "aircraft_type": meta["aircraft_type"],
-                    "type": meta["type"], # commercial, cargo, private, military
+                    "type": meta["type"],
                     "x_percent": position["x_percent"],
                     "y_percent": position["y_percent"],
                     "distance_miles": position["distance_miles"],
                 })
 
-        return {
+        result = {
             "airport_name": airport['name'],
             "code": airport_code.upper(),
             "search_radius": radius,
             "tower": {"lat": airport["lat"], "lon": airport["lon"], "label": "ATC tower"},
             "operator_filter": operator_filter or "",
             "aircraft_count": len(aircraft_list),
-            "flights": aircraft_list
+            "flights": aircraft_list,
+            "source": "live",
         }
-    except requests.exceptions.RequestException as e:
-        return {"error": f"Failed to connect to flight data stream: {str(e)}"}
+        OPEN_SKY_CACHE[cache_key] = {"timestamp": time.monotonic(), "result": result}
+        return result
+    except requests.exceptions.RequestException as error:
+        last_error = error
+
+    fallback_flights = build_demo_aircraft(airport, radius=radius, operator_filter=operator_filter)
+    return {
+        "airport_name": airport['name'],
+        "code": airport_code.upper(),
+        "search_radius": radius,
+        "tower": {"lat": airport["lat"], "lon": airport["lon"], "label": "ATC tower"},
+        "operator_filter": operator_filter or "",
+        "aircraft_count": len(fallback_flights),
+        "flights": fallback_flights,
+        "source": "demo",
+        "warning": f"OpenSky timed out; showing demo aircraft data. ({last_error.__class__.__name__ if last_error else 'network'})",
+    }
 
 @app.route("/", methods=["GET"])
 def home():

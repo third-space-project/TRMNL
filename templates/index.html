@@ -116,8 +116,11 @@
             try {
                 const response = await fetch(`/api/flights?${params}`); const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Flight data unavailable');
                 document.querySelectorAll('.flight-marker').forEach(marker => marker.remove()); result.flights.forEach(addMarker); populateOperators(result.flights); renderTable(result.flights);
-                summary.textContent = `${result.aircraft_count} aircraft within ${result.search_radius} mi`; status.textContent = `${silent ? 'Live · ' : ''}${result.airport_name} (${result.code})`; history.replaceState(null, '', `/?${params}`);
-                clearInterval(refreshTimer); refreshTimer = setInterval(() => loadFlights(null, true), 30000);
+                const sourceLabel = result.source === 'demo' ? 'Demo mode' : 'Live';
+                summary.textContent = `${result.aircraft_count} aircraft within ${result.search_radius} mi${result.source === 'demo' ? ' • demo data' : ''}`;
+                status.textContent = `${silent ? `${sourceLabel} · ` : ''}${result.airport_name} (${result.code})${result.warning ? ` — ${result.warning}` : ''}`;
+                history.replaceState(null, '', `/?${params}`);
+                clearInterval(refreshTimer); refreshTimer = setInterval(() => loadFlights(null, true), 60000);
             } catch (error) { status.textContent = error.message; status.classList.add('error-status'); summary.textContent = ''; }
             finally { requestInFlight = false; }
         }
