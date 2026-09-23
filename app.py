@@ -5,13 +5,12 @@ import math
 import re
 import time
 from pathlib import Path
-from functools import lru_cache
 from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__)
 DATABASE_PATH = Path(__file__).resolve().parent / "backend" / "database" / "airports.db"
-OPEN_SKY_CACHE_TTL_SECONDS = 25
-OPEN_SKY_CACHE = {}
+ADSB_CACHE_TTL_SECONDS = 25
+ADSB_CACHE = {}
 
 def get_airport_info(airport_code):
     conn = sqlite3.connect(DATABASE_PATH)
@@ -51,18 +50,6 @@ def project_aircraft_position(flight_lat, flight_lon, airport_lat, airport_lon, 
         "y_percent": max(5, min(95, y_percent)),
         "distance_miles": round(distance_miles, 1),
     }
-
-@lru_cache(maxsize=512)
-def get_aircraft_metadata(icao24):
-    try:
-        response = requests.get(
-            f"https://opensky-network.org/api/metadata/aircraft/icao24/{icao24}",
-            timeout=5,
-        )
-        return response.json() if response.status_code == 200 else None
-    except (requests.exceptions.RequestException, ValueError):
-        return None
-
 
 OPERATOR_PREFIXES = {
     "AAL": "American Airlines",
@@ -199,8 +186,8 @@ def resolve_operator_name(callsign, metadata=None):
     return "Operator unavailable"
 
 
-def resolve_aircraft_meta(icao24, category_id, callsign=None):
-    metadata = get_aircraft_metadata(icao24) or {}
+def resolve_aircraft_meta(icao24, category_id, callsign=None, metadata=None):
+    metadata = metadata or {}
     category_names = {
         1: "Unknown",
         2: "Light",
@@ -286,66 +273,70 @@ def get_nearby_aircraft(airport_code, radius=25, operator_filter=None):
         return {"error": f"Airport '{airport_code.upper()}' could not be found in the database."}
 
     cache_key = (airport_code.upper(), radius, (operator_filter or "").lower())
-    cached_result = OPEN_SKY_CACHE.get(cache_key)
-    if cached_result and time.monotonic() - cached_result["timestamp"] < OPEN_SKY_CACHE_TTL_SECONDS:
+    cached_result = ADSB_CACHE.get(cache_key)
+    if cached_result and time.monotonic() - cached_result["timestamp"] < ADSB_CACHE_TTL_SECONDS:
         return cached_result["result"]
 
-    params = calculate_bounding_box(airport['lat'], airport['lon'], radius_miles=radius)
-    url = "https://opensky-network.org/api/states/all"
+    radius_nm = max(1, min(250, math.ceil(radius / 1.15078)))
+    url = f"https://api.adsb.lol/v2/lat/{airport['lat']}/lon/{airport['lon']}/dist/{radius_nm}"
     last_error = None
 
     try:
         headers = {'User-Agent': 'TRMNL Flight Radar/1.0'}
-        response = requests.get(url, params=params, headers=headers, timeout=6)
+        response = requests.get(url, headers=headers, timeout=6)
 
         if response.status_code == 429:
-            return {"error": "OpenSky API rate limit reached. Please wait a minute."}
+            return {"error": "adsb.lol rate limit reached. Please wait a minute."}
         if response.status_code != 200:
             raise requests.exceptions.HTTPError(f"status {response.status_code}")
 
         data = response.json()
-        states = data.get("states", []) or []
+        states = data.get("ac", []) or []
 
         aircraft_list = []
         for flight in states:
-            if len(flight) > 8:
-                icao24 = flight[0]
-                latitude = flight[6]
-                longitude = flight[5]
-                if latitude is None or longitude is None:
-                    continue
+            latitude = flight.get("lat")
+            longitude = flight.get("lon")
+            if latitude is None or longitude is None:
+                continue
 
-                position = project_aircraft_position(latitude, longitude, airport['lat'], airport['lon'], radius)
-                if position["distance_miles"] > radius:
-                    continue
+            position = project_aircraft_position(latitude, longitude, airport['lat'], airport['lon'], radius)
+            if position["distance_miles"] > radius:
+                continue
 
-                velocity_ms = flight[9]
-                speed_knots = int(velocity_ms * 1.94384) if velocity_ms is not None else 0
-                heading = int(flight[10]) if flight[10] is not None else 0
-                category_id = flight[17] if len(flight) > 17 else None
+            icao24 = flight.get("hex", "unknown")
+            callsign = (flight.get("flight") or flight.get("r") or "UNKNOWN").strip()
+            typecode = flight.get("t") or ""
+            metadata = {
+                "model": typecode,
+                "typecode": typecode,
+                "operatorname": flight.get("ownop"),
+            }
+            meta = resolve_aircraft_meta(icao24, None, callsign=callsign, metadata=metadata)
+            if meta["operator"] == "Operator unavailable" and callsign != "UNKNOWN":
+                meta["operator"] = f"{callsign[:3]} (callsign)"
+            if operator_filter and operator_filter.lower() not in meta["operator"].lower():
+                continue
 
-                callsign = flight[1].strip() if flight[1] else "UNKNOWN"
-                meta = resolve_aircraft_meta(icao24, category_id, callsign=callsign)
-                if meta["operator"] == "Operator unavailable" and callsign != "UNKNOWN":
-                    meta["operator"] = f"{callsign[:3]} (callsign)"
-                if operator_filter and operator_filter.lower() not in meta["operator"].lower():
-                    continue
-
-                aircraft_list.append({
-                    "icao24": icao24,
-                    "callsign": callsign,
-                    "altitude": f"{int(flight[7] * 3.28084)} ft" if flight[7] is not None else "Ground / Unknown",
-                    "on_ground": "Yes" if flight[8] else "No",
-                    "speed": f"{speed_knots} kts",
-                    "heading": heading,
-                    "model": meta["model"],
-                    "operator": meta["operator"],
-                    "aircraft_type": meta["aircraft_type"],
-                    "type": meta["type"],
-                    "x_percent": position["x_percent"],
-                    "y_percent": position["y_percent"],
-                    "distance_miles": position["distance_miles"],
-                })
+            altitude = flight.get("alt_baro")
+            altitude_text = f"{int(altitude)} ft" if isinstance(altitude, (int, float)) else "Ground / Unknown"
+            speed_knots = int(flight.get("gs") or 0)
+            heading = int(flight.get("track") or 0)
+            aircraft_list.append({
+                "icao24": icao24,
+                "callsign": callsign,
+                "altitude": altitude_text,
+                "on_ground": "Yes" if altitude == "ground" else "No",
+                "speed": f"{speed_knots} kts",
+                "heading": heading,
+                "model": meta["model"],
+                "operator": meta["operator"],
+                "aircraft_type": meta["aircraft_type"],
+                "type": meta["type"],
+                "x_percent": position["x_percent"],
+                "y_percent": position["y_percent"],
+                "distance_miles": position["distance_miles"],
+            })
 
         result = {
             "airport_name": airport['name'],
@@ -355,9 +346,9 @@ def get_nearby_aircraft(airport_code, radius=25, operator_filter=None):
             "operator_filter": operator_filter or "",
             "aircraft_count": len(aircraft_list),
             "flights": aircraft_list,
-            "source": "live",
+            "source": "adsb.lol",
         }
-        OPEN_SKY_CACHE[cache_key] = {"timestamp": time.monotonic(), "result": result}
+        ADSB_CACHE[cache_key] = {"timestamp": time.monotonic(), "result": result}
         return result
     except requests.exceptions.RequestException as error:
         last_error = error
@@ -372,7 +363,7 @@ def get_nearby_aircraft(airport_code, radius=25, operator_filter=None):
         "aircraft_count": len(fallback_flights),
         "flights": fallback_flights,
         "source": "demo",
-        "warning": f"OpenSky timed out; showing demo aircraft data. ({last_error.__class__.__name__ if last_error else 'network'})",
+        "warning": "Live flight data is temporarily unavailable; showing demo aircraft data.",
     }
 
 @app.route("/", methods=["GET"])
