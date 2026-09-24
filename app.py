@@ -2,6 +2,7 @@ import sqlite3
 import requests
 import math
 from flask import Flask, render_template, request
+from aircraft_lookup import resolve_operator
 
 app = Flask(__name__)
 
@@ -35,41 +36,17 @@ def project_aircraft_position(flight_lat, flight_lon, airport_lat, airport_lon, 
         "distance_miles": round(math.hypot(x_miles, y_miles), 1),
     }
 
-def resolve_aircraft_meta(icao24, category_id):
-    """
-    Classifies aircraft category and operator data by parsing transponder blocks 
-    and OpenSky category tracking integers.
-    """
-    # Default fallback values
-    meta = {"model": "Airliner Jet", "operator": "Commercial Carrier", "type": "commercial"}
-    
+
+def classify_aircraft_type(category_id):
     if category_id is None:
-        return meta
-
-    # OpenSky numeric category mapping using clean integer conditionals
-    if category_id >= 1 and category_id <= 6:
-        meta["model"] = "Light Aircraft"
-        meta["operator"] = "Private Operator"
-        meta["type"] = "private"
-        
-    elif category_id == 7:
-        meta["model"] = "Boeing 737 / Airbus A320"
-        meta["operator"] = "Commercial Carrier"
-        meta["type"] = "commercial"
-        
-    elif category_id == 8:
-        meta["model"] = "Boeing 747 / Heavy Quad"
-        meta["operator"] = "Global Cargo Flight"
-        meta["type"] = "cargo"
-        
-    elif category_id == 19:
-        meta["model"] = "Military Transport/Jet"
-        meta["operator"] = "Air Force / Defense"
-        meta["type"] = "military"
-        
-    return meta
-
-
+        return "commercial"
+    if 1 <= category_id <= 6:
+        return "private"
+    if category_id == 8:
+        return "cargo"
+    if category_id == 19:
+        return "military"
+    return "commercial"
 
 
 def get_nearby_aircraft(airport_code, radius=25):
@@ -109,17 +86,18 @@ def get_nearby_aircraft(airport_code, radius=25):
                 heading = int(flight[10]) if flight[10] is not None else 0
                 category_id = flight[17] if len(flight) > 17 else None
                 
-                meta = resolve_aircraft_meta(icao24, category_id)
+                callsign = flight[1].strip() if flight[1] else "UNKNOWN"
+                operator = resolve_operator(callsign)
+                aircraft_type = classify_aircraft_type(category_id)
 
                 aircraft_list.append({
-                    "callsign": flight[1].strip() if flight[1] else "UNKNOWN",
+                    "callsign": callsign,
                     "altitude": f"{int(flight[7] * 3.28084)} ft" if flight[7] is not None else "Ground / Unknown",
                     "on_ground": "Yes" if flight[8] else "No",
                     "speed": f"{speed_knots} kts",
                     "heading": heading,
-                    "model": meta["model"],
-                    "operator": meta["operator"],
-                    "type": meta["type"], # commercial, cargo, private, military
+                    "operator": operator,
+                    "type": aircraft_type,
                     "x_percent": position["x_percent"],
                     "y_percent": position["y_percent"],
                     "distance_miles": position["distance_miles"],
@@ -134,6 +112,7 @@ def get_nearby_aircraft(airport_code, radius=25):
         }
     except requests.exceptions.RequestException as e:
         return {"error": f"Failed to connect to flight data stream: {str(e)}"}
+    
 
 @app.route("/", methods=["GET"])
 def home():
