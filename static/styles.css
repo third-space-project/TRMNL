@@ -1,252 +1,39 @@
-body { 
-    font-family: Arial, sans-serif;
-    max-width: 900px; 
-    margin: 40px auto; 
-    padding: 0 20px; 
-    color: #e0e0e0; 
-    background: #000000;
+@font-face { 
+    font-family: "Jersey 20"; 
+    font-style: normal; 
+    font-weight: 400; 
+    src: url("https://static.figma.com/font/Jersey20-Regular_2") format("woff2"); 
 }
 
-
-.search-container { 
-    background: #111111; 
-    padding: 25px; 
-    border-radius: 8px; 
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
-    margin-bottom: 30px; 
+:root { 
+    --ink: #e7f2ea; 
+    --muted: #8aa594; 
+    --line: #26382d; 
+    --green: #58ff92; 
+    --amber: #ffbe0b; 
 }
 
-.form-group { 
-    display: flex; 
-    gap: 15px; 
+* {
+    box-sizing: border-box; 
 }
-
-input[type="text"], input[type="number"] { 
-    padding: 10px; 
-    border: 1px solid #ccc; 
-    border-radius: 4px; 
-    font-size: 16px; 
-}
-
-input[type="text"] { 
-    flex: 2; 
-}
-
-input[type="number"] { 
-    flex: 1; 
-}
-
-input[type="text"], input[type="number"] {
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 16px;
-    color: #111111;
-}
-
-button { 
-    padding: 10px 20px; 
-    background-color: #5c5d5d; 
-    color: white; 
-    border: none; 
-    border-radius: 4px; 
-    font-size: 16px; 
-    cursor: pointer; 
-}
-
-button:hover { 
-    background-color: #393a3a; 
-}
-
-
-table { 
-    border-collapse: collapse; 
-    width: 100%; 
-    margin-top: 20px; 
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
-}
-
-th, td { 
-    border: 1px solid #ddd; 
-    padding: 12px; 
-    text-align: left; 
-}
-
-th { 
-    background-color: #1a1a1a; 
-    color: #00ff00;
-}
-
-.error { 
-    color: #dc3545; 
-    background-color: #f8d7da; 
-    padding: 15px; 
-    border-radius: 4px; 
-    margin-bottom: 20px; 
-}
-
-.type-pill {
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 10px;
-    font-weight: bold;
-    color: #ffffff;
-}
-.type-pill.commercial { background: #3a86ff; }
-.type-pill.cargo      { background: #ffbe0b; color: #222222; }
-.type-pill.private    { background: #06d6a0; }
-.type-pill.military   { background: #ef476f; }
-
-
-.radar-box-area {
-    min-height: 60vh;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative; /* Anchor container for absolute tooltips */
-}
-
-.radar-box {
-    width: min(90vw, 90vh);
-    height: min(90vw, 90vh);
-    position: relative;
-    border-radius: 50%;
-    filter: drop-shadow(0 0 6px rgba(51, 255, 102, 0.6));
-    overflow: hidden;
-    background-color: #000000;
-    background-image: radial-gradient(circle,
-        #000000  5%, #33ff66, #000000  6%, #000000  10%, #33ff66, #000000  11%,
-        #000000  15%, #33ff66, #000000  16%, #000000  20%, #33ff66, #000000  21%,
-        #000000  25%, #33ff66, #000000  26%, #000000  30%, #33ff66, #000000  31%,
-        #000000  35%, #33ff66, #000000  36%, #000000  40%, #33ff66, #000000  41%,
-        #000000  45%, #33ff66, #000000  46%, #000000  50%, #33ff66, #000000  51%,
-        #000000  55%, #33ff66, #000000  56%, #000000  60%, #33ff66, #000000  61%,
-        #000000  65%, #33ff66, #000000  66%, #000000  70%, #33ff66, #000000  71%);
-}
-
-.radar {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    background: radial-gradient(circle at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 48%, rgba(0,0,0,0.08) 49%, rgba(0,0,0,0) 55%, rgba(0,0,0,0) 100%);
-    z-index: 1;
-}
-
-.radar::before {
-    content: "";
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 50%;
-    height: 40%;
-    transform: translateY(-100%);
-    border-bottom: 2px solid #00ff00;
-    background: linear-gradient(325deg, #00ff00, transparent, transparent);
-    animation: 5s radarAnim infinite linear;
-    transform-origin: left bottom;
-}
-
-@keyframes radarAnim {
-    from { transform: translateY(-100%) rotate(0deg); }
-    to   { transform: translateY(-100%) rotate(360deg); }
-}
-
-
-.flight-marker {
-    position: absolute;
-    width: 24px;   /* Proportional sizing matrix boundary */
-    height: 24px;
-    transform: translate(-50%, -50%);
-    z-index: 10;
-    cursor: crosshair;
-    transition: transform 0.2s linear;
-}
-
-.plane-svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-    filter: drop-shadow(0px 2px 3px rgba(0, 0, 0, 0.4));
-    transition: transform 0.2s ease, fill 0.2s ease;
-}
-
-
-.flight-marker.commercial .plane-svg { fill: #3a86ff; } /* Azure Blue Jet */
-.flight-marker.cargo .plane-svg      { fill: #ffbe0b; } /* Warning Amber Cargo */
-.flight-marker.private .plane-svg    { fill: #06d6a0; } /* Emerald Light GA */
-.flight-marker.military .plane-svg   { fill: #ef476f; } /* Crimson Performance Airframe */
-
-
-.flight-marker:hover {
-    z-index: 50;
-}
-
-.flight-marker:hover .plane-svg {
-    fill: #ffffff !important;
-    transform: scale(1.25);
-}
-
-
-.flight-marker::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 6px;
-    height: 6px;
-    transform: translate(-50%, -50%);
-    background: #4cc9f0;
-    border-radius: 50%;
-    box-shadow: 0 0 10px rgba(76, 201, 240, 0.9);
-    z-index: -1;
-}
-
-
-.radar-hover-banner {
-    position: absolute;
-    background: rgba(20, 24, 33, 0.95);
-    border: 1px solid #4a5568;
-    color: #f7fafc;
-    padding: 12px 16px;
-    border-radius: 6px;
-    font-size: 13px;
-    min-width: 220px;
-    pointer-events: none; /* Prevents visual hover blocking flicker loops */
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-    z-index: 9999;
-    backdrop-filter: blur(4px);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
-
-.banner-title {
-    display: block;
-    font-size: 16px;
-    font-weight: 800;
-    color: #4cc9f0;
-    letter-spacing: 0.5px;
-}
-
-.banner-sub {
-    display: block;
-    font-size: 11px;
-    color: #a0aec0;
-    margin-bottom: 6px;
-    text-transform: uppercase;
-}
-
-.tooltip-grid {
-    border-top: 1px solid #2d3748;
-    padding-top: 6px;
-}
-
-.grid-item {
-    margin: 3px 0;
-    color: #e2e8f0;
-}
-
-.grid-item strong {
-    color: #a0aec0;
-    display: inline-block;
-    width: 65px;
-}
+body { margin: 0; min-width: 320px; background: radial-gradient(circle at 50% 30%, #14251b 0, #050806 48%, #020302 100%); color: var(--ink); font-family: "Jersey 20", sans-serif; }
+.app-shell { width: min(1100px, 100%); margin: 0 auto; padding: 28px clamp(14px, 4vw, 42px) 50px; }
+.app-header, .section-heading, .view-controls { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 16px; }
+.eyebrow { margin: 0; color: var(--green); font-size: 13px; letter-spacing: 2px; } h1 { margin: 0; font-size: clamp(42px, 8vw, 72px); line-height: .9; } h2 { margin: 0; font-size: 24px; }
+.status, .result-summary { color: var(--muted); margin: 0; } .error-status { color: #ff6b72; } .warning-status { color: var(--amber); }
+.search-container { margin: 28px 0 16px; padding: 18px; border: 1px solid var(--line); background: rgba(17, 24, 21, .92); }
+.form-group { display: grid; grid-template-columns: minmax(150px, 1.5fr) minmax(100px, .65fr) minmax(150px, 1fr) auto; gap: 12px; align-items: end; }
+.secondary-button { border-color: #486053; background: transparent; color: var(--green); white-space: nowrap; }
+.secondary-button:hover { background: #14251b; }
+label span { display: block; margin-bottom: 6px; color: var(--muted); font-size: 13px; } input, select, button { min-height: 42px; width: 100%; border: 1px solid #486053; border-radius: 3px; padding: 9px 11px; font: inherit; font-size: 16px; } input, select { background: #07100a; color: var(--ink); } button { width: auto; padding: 9px 18px; background: var(--green); color: #031008; cursor: pointer; } button:hover { background: #b2ffcb; }
+.view-controls { margin-top: 15px; color: var(--muted); } .toggle-control { display: flex; align-items: center; gap: 8px; } .toggle-control span { margin: 0; } .toggle-control input { width: 17px; min-height: 17px; accent-color: var(--green); }
+.radar-box-area { position: relative; display: grid; place-items: center; min-height: min(74vh, 760px); }
+.radar-box { position: relative; width: min(88vw, 68vh, 720px); aspect-ratio: 1; overflow: hidden; border: 1px solid #2d9d58; border-radius: 50%; background-color: #020604; background-image: radial-gradient(circle, transparent 0 5%, #1b6939 5.3% 5.7%, transparent 6% 14%, #1b6939 14.3% 14.7%, transparent 15% 24%, #1b6939 24.3% 24.7%, transparent 25% 34%, #1b6939 34.3% 34.7%, transparent 35% 44%, #1b6939 44.3% 44.7%, transparent 45% 54%, #1b6939 54.3% 54.7%, transparent 55% 64%, #1b6939 64.3% 64.7%, transparent 65%); box-shadow: 0 0 28px rgba(88, 255, 146, .2); }
+.radar { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg at 50% 50%, transparent 0 85%, rgba(88, 255, 146, .26) 88%, transparent 92%); animation: radarAnim 5s linear infinite; } @keyframes radarAnim { to { transform: rotate(360deg); } }
+.tower-marker { position: absolute; left: 50%; top: 50%; z-index: 5; display: grid; justify-items: center; gap: 2px; transform: translate(-50%, -50%); color: var(--green); font-size: clamp(10px, 1.4vw, 14px); text-transform: uppercase; white-space: nowrap; text-shadow: 0 0 8px #020604; } .tower-icon { display: grid; place-items: center; width: clamp(22px, 3.5vw, 32px); aspect-ratio: 1; border: 2px solid var(--green); border-radius: 50%; font-size: clamp(18px, 2.5vw, 24px); line-height: 1; background: #06120a; }
+.flight-marker { position: absolute; z-index: 10; width: clamp(18px, 3.2vw, 30px); aspect-ratio: 1; transform: translate(-50%, -50%); cursor: crosshair; } .plane-svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 0 4px rgba(0,0,0,.8)); transition: transform .15s ease, fill .15s ease; }
+.flight-marker.commercial .plane-svg { fill: var(--green); } .flight-marker.cargo .plane-svg { fill: var(--amber); } .flight-marker.private .plane-svg { fill: #44d9c0; } .flight-marker.military .plane-svg { fill: #ff6570; } .flight-marker:hover { z-index: 50; } .flight-marker:hover .plane-svg { fill: white; transform: scale(1.25); }
+.radar-hover-banner { position: absolute; z-index: 100; min-width: 220px; max-width: min(300px, 80vw); padding: 12px 15px; pointer-events: none; border: 1px solid #4a6652; background: rgba(9, 17, 12, .96); box-shadow: 0 4px 15px rgba(0,0,0,.5); } .radar-hover-banner[hidden] { display: none; } .banner-title { display: block; color: var(--green); font-size: 20px; } .banner-sub { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; } .tooltip-grid { margin-top: 7px; border-top: 1px solid var(--line); padding-top: 6px; } .grid-item { margin: 3px 0; } .grid-item strong { display: inline-block; width: 70px; color: var(--muted); }
+.table-section { margin-top: 12px; } .section-heading { margin-bottom: 10px; } .section-heading span { color: var(--muted); } .table-scroll { overflow-x: auto; border: 1px solid var(--line); } table { width: 100%; min-width: 680px; border-collapse: collapse; } th, td { padding: 11px 12px; border-bottom: 1px solid var(--line); text-align: left; } th { color: var(--green); background: #101b14; font-weight: 400; } .callsign-cell { color: var(--green); }
+@media (max-width: 700px) { .app-header { align-items: flex-start; flex-direction: column; } .header-actions { width: 100%; justify-content: space-between; } .form-group { grid-template-columns: 1fr 1fr; } .form-group label:first-child, .form-group label:nth-child(3), .form-group button { grid-column: 1 / -1; } .form-group button { width: 100%; } .radar-box-area { min-height: auto; padding: 18px 0; } .radar-box { width: min(92vw, 68vh); } .radar-hover-banner { position: fixed; left: 12px !important; right: 12px; top: auto !important; bottom: 12px; max-width: none; } .view-controls { align-items: flex-start; flex-direction: column; gap: 8px; } }
