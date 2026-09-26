@@ -1,4 +1,4 @@
 requests>=2.31.0
 pathlib
 Flask>=3.0.0
-guinicorn>=21.2.0
+gunicorn>=21.2.0
