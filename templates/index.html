@@ -111,15 +111,14 @@
             if (!airport || requestInFlight) return;
             const params = new URLSearchParams({ airport, radius: radiusInput.value || '25' }); if (operatorInput.value) params.set('operator', operatorInput.value);
             requestInFlight = true;
-            if (!silent) status.textContent = 'Connecting to adsb.lol...';
-            status.classList.remove('error-status', 'warning-status');
+            if (!silent) status.textContent = 'Connecting to OpenSky...';
+            status.classList.remove('error-status');
             try {
                 const response = await fetch(`/api/flights?${params}`); const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Flight data unavailable');
                 document.querySelectorAll('.flight-marker').forEach(marker => marker.remove()); result.flights.forEach(addMarker); populateOperators(result.flights); renderTable(result.flights);
-                const sourceLabel = result.source === 'demo' ? 'Demo mode' : 'adsb.lol';
+                const sourceLabel = result.source === 'demo' ? 'Demo mode' : 'Live';
                 summary.textContent = `${result.aircraft_count} aircraft within ${result.search_radius} mi${result.source === 'demo' ? ' • demo data' : ''}`;
                 status.textContent = `${silent ? `${sourceLabel} · ` : ''}${result.airport_name} (${result.code})${result.warning ? ` — ${result.warning}` : ''}`;
-                status.classList.toggle('warning-status', result.source === 'demo');
                 history.replaceState(null, '', `/?${params}`);
                 clearInterval(refreshTimer); refreshTimer = setInterval(() => loadFlights(null, true), 60000);
             } catch (error) { status.textContent = error.message; status.classList.add('error-status'); summary.textContent = ''; }
