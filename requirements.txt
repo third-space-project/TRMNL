@@ -1,3 +1,4 @@
-requests 
+requests>=2.31.0
 pathlib
-flask
+Flask>=3.0.0
+guinicorn>=21.2.0
